@@ -1,14 +1,19 @@
-# Welcome to your CDK TypeScript project
+# SlackGPT
 
-This is a blank project for CDK development with TypeScript.
+- SlackBotでChatGPT API経由の会話を行うAWS CDK構築
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## ## Description
 
-## Useful commands
+- AWS CDKでインフラ構築
+  - SSM
+  - APIGW
+  - Lambda
+  - DynamoDB
+- SlackBot（bolt）に送ったメッセージをChatGPT APIに投げかけ、返答をbot返答
+- DynamoDBでスレッド単位で会話記録し、ChatGPT APIのメッセージに含める
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `cdk deploy`      deploy this stack to your default AWS account/region
-* `cdk diff`        compare deployed stack with current state
-* `cdk synth`       emits the synthesized CloudFormation template
+## TODO
+
+- [ ] いままでの会話分を次のメッセージへ渡す際に要約を挟む
+- [ ] プロンプトインジェクション
+- [ ] etc
