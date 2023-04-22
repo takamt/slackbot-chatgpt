@@ -1,13 +1,16 @@
 import type { Construct } from "constructs";
 import * as cdk from "aws-cdk-lib";
+import * as apigateway from '@aws-cdk/aws-apigateway';
+import * as logs from '@aws-cdk/aws-logs';
+import { method } from "lodash-es";
 
 export class SlackgptStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // DynamoDBテーブル
+    // DynamoDB
     const messagesTable = new cdk.aws_dynamodb.Table(this, "messagesTable", {
-      tableName: "slackChatGptBotNode-messages",
+      tableName: "slackGPTNode--messages",
       partitionKey: {
         name: "id",
         type: cdk.aws_dynamodb.AttributeType.STRING,
@@ -23,7 +26,7 @@ export class SlackgptStack extends cdk.Stack {
       },
     });
 
-    // 各種シークレット・APIキーをSSMパラメータストアから取得
+    // Get Api/Secret Key from SSM Parameter Store
     const slackSigningSecret =
       cdk.aws_ssm.StringParameter.valueForStringParameter(
         this,
@@ -35,13 +38,15 @@ export class SlackgptStack extends cdk.Stack {
     );
     const openAiApiKey = cdk.aws_ssm.StringParameter.valueForStringParameter(
       this,
-      "slackGptNode-openAiApiKey"
+      "slackGPTNode-openAiApiKey"
     );
 
-    // APIGW Lambda関数
-    const apiFn = new cdk.aws_lambda_nodejs.NodejsFunction(this, "apiFn", {
+    // APIGW LambdaFunction
+    const apiFn = new cdk.aws_lambda_nodejs.NodejsFunction(this, "callSlackGPTFn", {
+      functionName: 'callSlackGPT',
       runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
-      entry: "../server/src/handler.ts",
+      projectRoot: "..",
+      entry: "server/src/handler.ts",
       environment: {
         // 環境変数にシークレットとAPIキーをセット
         SLACK_SIGNING_SECRET: slackSigningSecret,
@@ -57,14 +62,22 @@ export class SlackgptStack extends cdk.Stack {
     messagesTable.grantReadWriteData(apiFn);
 
     // APIGW
-    const api = new cdk.aws_apigateway.RestApi(this, "api", {
+    const api = new cdk.aws_apigateway.RestApi(this, "slackGPTApi", {
+      restApiName: 'slackGPT',
+      defaultMethodOptions: {
+        methodResponses: [{ statusCode: "200" }]
+      },
       deployOptions: {
         tracingEnabled: true,
         stageName: "api",
+        //実行ログの設定
+        dataTraceEnabled: true,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
       },
+      cloudWatchRole: true,
     });
-    api.root.addProxy({
-      defaultIntegration: new cdk.aws_apigateway.LambdaIntegration(apiFn),
-    });
+
+    const slackGPT = api.root.addResource('slackGPT')
+    slackGPT.addMethod('POST', new cdk.aws_apigateway.LambdaIntegration(apiFn));
   }
 }
